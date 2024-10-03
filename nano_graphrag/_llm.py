@@ -5,8 +5,7 @@ from openai import AsyncOpenAI, AsyncAzureOpenAI, APIConnectionError, RateLimitE
 from tenacity import (
     retry,
     stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
+    wait_random_exponential,
 )
 import os
 
@@ -31,11 +30,7 @@ def get_azure_openai_async_client_instance():
     return global_azure_openai_async_client
 
 
-@retry(
-    stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type((RateLimitError, APIConnectionError)),
-)
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6), retry=retry(RateLimitError))
 async def openai_complete_if_cache(
     model, prompt, system_prompt=None, history_messages=[], **kwargs
 ) -> str:
@@ -91,8 +86,8 @@ async def gpt_4o_mini_complete(
 @wrap_embedding_func_with_attrs(embedding_dim=1536, max_token_size=8192)
 @retry(
     stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type((RateLimitError, APIConnectionError)),
+    wait=wait_random_exponential(multiplier=1, min=4, max=10),
+    retry=retry((RateLimitError, APIConnectionError)),
 )
 async def openai_embedding(texts: list[str]) -> np.ndarray:
     openai_async_client = get_openai_async_client_instance()
@@ -104,8 +99,8 @@ async def openai_embedding(texts: list[str]) -> np.ndarray:
 
 @retry(
     stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type((RateLimitError, APIConnectionError)),
+    wait=wait_random_exponential(multiplier=1, min=4, max=10),
+    retry=retry((RateLimitError, APIConnectionError)),
 )
 async def azure_openai_complete_if_cache(
     deployment_name, prompt, system_prompt=None, history_messages=[], **kwargs
@@ -167,8 +162,8 @@ async def azure_gpt_4o_mini_complete(
 @wrap_embedding_func_with_attrs(embedding_dim=1536, max_token_size=8192)
 @retry(
     stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type((RateLimitError, APIConnectionError)),
+    wait=wait_random_exponential(multiplier=1, min=4, max=10),
+    retry=retry((RateLimitError, APIConnectionError)),
 )
 async def azure_openai_embedding(texts: list[str]) -> np.ndarray:
     azure_openai_client = get_azure_openai_async_client_instance()
